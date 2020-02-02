@@ -186,7 +186,6 @@ public:
 	int hidden_nodes;
 	int output_nodes;
 	int hidden_layer;
-	float learning_rate;
 
 	vector<matrix> w;
 	matrix wo;
@@ -270,7 +269,7 @@ public:
 		t.clear();
 		u.clear();
 
-
+		// Backpropagation
 		for (int i = w.size() - 1; i >= 0; i--) {
 			matrix hidden_errors;
 			matrix wt;
@@ -288,7 +287,7 @@ public:
 			au.t_set(&hidden_inputs[i]);
 			matrix av;
 			av.dot(au, av);
-			av.scalar(learning_rate);
+			av.scalar(rate);
 
 			w[i].plus(av);
 			wt.clear();
@@ -320,7 +319,7 @@ public:
 	}
 };
 
-void loadfile(string fname, vector<matrix>* inputs, vector<matrix>* outputs) {
+void loadfile(string fname, vector<matrix>* inputs, vector<matrix>* outputs,int input_nodesize,int output_nodesize) {
 	// Load file
 	FILE* fp = NULL;
 	fp = fopen(fname.c_str(), "r");
@@ -330,10 +329,10 @@ void loadfile(string fname, vector<matrix>* inputs, vector<matrix>* outputs) {
 		char buf[1024 * 5];
 		fgets(buf, 1024 * 5, fp);
 		CellsTy cells = cells_split(buf, ',');
-		if (cells.size() < 785) continue;
+		if (cells.size() < input_nodesize+1) continue;
 
-		matrix input(784, 1), output(10, 1);
-		for (int i = 0; i < 784; i++) {
+		matrix input(input_nodesize, 1), output(output_nodesize, 1);
+		for (int i = 0; i < input_nodesize; i++) {
 			input.put(i, 0, atof(cells[i + 1].c_str()));
 		}
 		input.scalar_division(255.0f);
@@ -343,7 +342,6 @@ void loadfile(string fname, vector<matrix>* inputs, vector<matrix>* outputs) {
 		output.put(atoi(cells[0].c_str()), 0, ONE);
 		inputs->push_back(input);
 		outputs->push_back(output);
-//		output.output();
 	}
 	fclose(fp);
 }
@@ -359,7 +357,6 @@ int main() {
 	nn.hidden_nodes = 200;
 	nn.hidden_layer = 1;
 	nn.output_nodes = 10;
-	nn.learning_rate = 0.1;
 	int epochs = 10;
 
 	vector<matrix> inputs;
@@ -367,15 +364,16 @@ int main() {
 
 	nn.init();
 
+	// Load or training network 
 #ifdef MODE_USE_TRAINED_DATA
 	nn.load("w");
 #else
-	loadfile("./sample_data/mnist_train_small.csv", &inputs, &outputs);
+	loadfile("./sample_data/mnist_train_small.csv", &inputs, &outputs, nn.input_nodes, nn.output_nodes);
 	cout << "Start training" << endl;
 	for (int i = 0; i < epochs; i++) {
 		cout << "epoch:	" << i << endl;
 		for (int j = 0; j < inputs.size(); j++) {
-			nn.train(&inputs[j], &outputs[j], 0.1);
+			nn.train(&inputs[j], &outputs[j], 0.01);
 		}
 	}
 	cout << "Training Done !" << endl;
@@ -383,22 +381,23 @@ int main() {
 	cout << "Saved." << endl;
 #endif
 
+	// Test network
 	inputs.clear();
 	outputs.clear();
 
-	loadfile("./sample_data/mnist_test.csv", &inputs, &outputs);
+	loadfile("./sample_data/mnist_test.csv", &inputs, &outputs, nn.input_nodes, nn.output_nodes);
 
 	int cou = 0;
 	int sum = 0;
 	for (int j = 0; j < inputs.size(); j++) {
 		int ans = 0;
-		for (int i = 1; i < 10; i++) {
+		for (int i = 1; i < nn.output_nodes; i++) {
 			if (outputs[j].get(i, 0) > outputs[j].get(ans, 0)) ans = i;
 		}
 
 		nn.query(&inputs[j], &outputs[j]);
 		int mindex = 0;
-		for (int i = 1; i < 10; i++) {
+		for (int i = 1; i < nn.output_nodes; i++) {
 			if (outputs[j].get(i, 0) > outputs[j].get(mindex, 0)) mindex = i;
 		}
 #ifdef MODE_OUTPUT_ON
