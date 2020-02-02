@@ -13,7 +13,6 @@ const int RAND = 1 << 20;
 const float ZERO = 0.00001f;
 const float ONE = 0.99999f;
 
-typedef int myint;
 typedef string cells_string;
 typedef char cells_char;
 typedef vector<cells_string> CellsTy;
@@ -23,12 +22,12 @@ CellsTy cells_split(cells_char* line, cells_char comma) {
 	size_t len = strlen(line);
 	line[len - 1] = comma;
 	line[len] = '\0';
-	myint last = 0;
+	int last = 0;
 
 	CellsTy cells;
 	string l;
 
-	for (myint i = 0; i < len; i++) {
+	for (int i = 0; i < len; i++) {
 		if (line[i] == '\r') continue;
 		if (line[i] == '	') line[i] = comma;
 		if (line[i] == comma) {
@@ -43,8 +42,6 @@ CellsTy cells_split(cells_char* line, cells_char comma) {
 	return cells;
 }
 
-
-
 float sigmoidfunction(float x) {
 	return 1 / (1 + expf(-x));
 }
@@ -52,8 +49,13 @@ float sigmoidfunction(float x) {
 class matrix {
 private:
 public:
+	// Matrix body
 	matrixelement* mat;
+
+	// Matrix size
 	int n, m;
+
+	// Init matrix
 	matrix() {
 		n = m = 1;
 		mat = new matrixelement[n * m];
@@ -96,7 +98,7 @@ public:
 		std::random_device rnd;
 		for (int i = 0; i < n; i++)
 			for (int j = 0; j < m; j++)
-				mat[i * m + j] = (matrixelement)(rnd() % RAND) / (matrixelement)RAND - 0.5;
+				mat[i * m + j] = (matrixelement)(rnd() % RAND) / (matrixelement)RAND - 0.5f;
 	}
 	bool plus(matrix a) {
 		if (a.n != n || a.m != m) return false;
@@ -126,6 +128,7 @@ public:
 				}
 			}
 		}
+		return true;
 	}
 	void output() {
 		for (int i = 0; i < n; i++) {
@@ -345,24 +348,30 @@ void loadfile(string fname, vector<matrix>* inputs, vector<matrix>* outputs) {
 	fclose(fp);
 }
 
+//#define MODE_USE_TRAINED_DATA
+//#define MODE_OUTPUT_ON
+
 int main() {
 
+	// Setting neural network
 	NeuralNetwork nn;
-	nn.input_nodes = 784;// 784;
+	nn.input_nodes = 784;
 	nn.hidden_nodes = 200;
 	nn.hidden_layer = 1;
 	nn.output_nodes = 10;
 	nn.learning_rate = 0.1;
-	int epochs = 5;
+	int epochs = 10;
 
 	vector<matrix> inputs;
 	vector<matrix> outputs;
 
-	//	nn.load("w3");
-	loadfile("./sample_data/mnist_train_small.csv", &inputs, &outputs);
-
 	nn.init();
 
+#ifdef MODE_USE_TRAINED_DATA
+	nn.load("w");
+#else
+	loadfile("./sample_data/mnist_train_small.csv", &inputs, &outputs);
+	cout << "Start training" << endl;
 	for (int i = 0; i < epochs; i++) {
 		cout << "epoch:	" << i << endl;
 		for (int j = 0; j < inputs.size(); j++) {
@@ -372,10 +381,11 @@ int main() {
 	cout << "Training Done !" << endl;
 	nn.save("w");
 	cout << "Saved." << endl;
-	//	return 1;
+#endif
 
 	inputs.clear();
 	outputs.clear();
+
 	loadfile("./sample_data/mnist_test.csv", &inputs, &outputs);
 
 	int cou = 0;
@@ -385,21 +395,19 @@ int main() {
 		for (int i = 1; i < 10; i++) {
 			if (outputs[j].get(i, 0) > outputs[j].get(ans, 0)) ans = i;
 		}
-		outputs[j].output();
 
 		nn.query(&inputs[j], &outputs[j]);
 		int mindex = 0;
 		for (int i = 1; i < 10; i++) {
 			if (outputs[j].get(i, 0) > outputs[j].get(mindex, 0)) mindex = i;
 		}
+#ifdef MODE_OUTPUT_ON
 		outputs[j].output();
 		cout << "Answer:" << ans << endl;
-
-		if (ans == mindex) {
-			cou++;
-			cout << "success" << endl;
-		}
+		if (ans == mindex) cout << "success" << endl;
 		else cout << "failed" << endl;
+#endif
+		if (ans == mindex) cou++;
 		sum++;
 	}
 	cout << "Correct answer：" << cou << endl;
